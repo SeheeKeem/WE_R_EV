@@ -35,14 +35,15 @@ import com.example.rrrphone.ui.theme.AppText
 import kotlin.math.ceil
 import kotlin.math.roundToInt
 
-private val CInk = Color(0xFF171A20)
-private val CSub = Color(0xFF5C5E62)
-private val CFaint = Color(0xFF8E8E8E)
-private val CLine = Color(0xFFE6E7EA)
-private val CField = Color(0xFFF4F4F4)
-private val CEv = Color(0xFF12A37A)
-private val CGas = Color(0xFFE58A00)
-private val CWindow = Color(0xFF12A37A).copy(alpha = 0.10f)
+// 차량 앱과 같은 팔레트 (Common.kt)
+private val CInk = Ink
+private val CSub = Sub
+private val CFaint = Faint
+private val CLine = Line
+private val CField = Field
+private val CEv = Navy
+private val CGas = GasOrange
+private val CWindow = Navy.copy(alpha = 0.06f)
 
 private fun hourLabel(h: Float) = "${((h.roundToInt() % 24) + 24) % 24}시"
 

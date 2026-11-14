@@ -39,18 +39,24 @@ import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.random.Random
 
-// ───────────── 팔레트 (차량 앱과 동일) ─────────────
+// ───────────── 팔레트 (차량 앱 ui/theme/Tokens.kt 의 Hd 와 동일) ─────────────
+//  거의 흰색에 가까운 웜 그레이 배경 · 검정 타이포 · 얇은 라인, 포인트 컨러는 네이비 하나.
+//  전기 = 네이비, 연료 = 웜 그레이 (초록·주황·파랑 강조색은 쓰지 않음)
 
-val Bg = Color(0xFFF3F4F6)
+val Bg = Color(0xFFF5F4F2)
 val Surface = Color(0xFFFFFFFF)
-val Ink = Color(0xFF171A20)
-val Sub = Color(0xFF5C5E62)
-val Faint = Color(0xFF8E8E8E)
-val Line = Color(0xFFE6E7EA)
-val Field = Color(0xFFF4F4F4)
-val Blue = Color(0xFF3E6AE1)
-val EvGreen = Color(0xFF12A37A)
-val GasOrange = Color(0xFFE58A00)
+val Ink = Color(0xFF111111)
+val Sub = Color(0xFF555452)
+val Faint = Color(0xFF9A9895)
+val Line = Color(0xFFE3E1DE)
+val Field = Color(0xFFF0EEEB)
+val Navy = Color(0xFF002C5F)
+val NavySoft = Color(0xFFE9EDF2)
+val Muted = Color(0xFFBDB8B2)
+/** 예전 이름 유지 — 모두 네이비 / 웜 그레이로 통일 */
+val Blue = Navy
+val EvGreen = Navy
+val GasOrange = Color(0xFF8A8178)
 val LrrrCream = Color(0xFFFBE7C3)
 
 val Tone.color: Color get() = when (this) { Tone.Ev -> EvGreen; Tone.Gas -> GasOrange; Tone.Neutral -> Sub }
@@ -102,8 +108,8 @@ fun Pill(text: String, active: Boolean = false, onClick: () -> Unit) {
     Text(
         text, color = if (active) Surface else Ink, fontSize = 13.sp, fontWeight = FontWeight.Medium,
         modifier = Modifier.clip(RoundedCornerShape(18.dp))
-            .background(if (active) Ink else Surface)
-            .border(1.dp, if (active) Ink else Line, RoundedCornerShape(18.dp))
+            .background(if (active) Navy else Surface)
+            .border(1.dp, if (active) Navy else Line, RoundedCornerShape(18.dp))
             .clickable(onClick = onClick).padding(horizontal = 14.dp, vertical = 8.dp),
     )
 }
@@ -111,13 +117,13 @@ fun Pill(text: String, active: Boolean = false, onClick: () -> Unit) {
 @Composable
 fun PleosPill(synced: Boolean) {
     Row(
-        Modifier.clip(RoundedCornerShape(14.dp)).background(if (synced) EvGreen.copy(alpha = 0.1f) else Field)
+        Modifier.clip(RoundedCornerShape(14.dp)).background(if (synced) NavySoft else Field)
             .padding(horizontal = 10.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.size(7.dp).clip(CircleShape).background(if (synced) EvGreen else Blue))
+        Box(Modifier.size(7.dp).clip(CircleShape).background(if (synced) Navy else Muted))
         Spacer(Modifier.width(6.dp))
-        Text(if (synced) "Pleos 반영됨" else "Pleos 연결됨", color = if (synced) EvGreen else Sub,
+        Text(if (synced) "Pleos 반영됨" else "Pleos 연결됨", color = if (synced) Navy else Sub,
             fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
     }
 }
@@ -178,7 +184,7 @@ private fun DriveRow(l: Leg) {
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f).padding(vertical = 6.dp).clip(RoundedCornerShape(8.dp)).background(Field)
             .padding(horizontal = 10.dp, vertical = 8.dp)) {
-            Text("🚗 ${l.distKm.roundToInt()}km · 약 ${((l.arrive - l.depart) * 60).roundToInt()}분",
+            Text("${l.distKm.roundToInt()}km · 약 ${((l.arrive - l.depart) * 60).roundToInt()}분",
                 color = Sub, fontSize = 12.sp)
             Spacer(Modifier.height(5.dp))
             EnergyBar(l.evKm, l.gasKm, Modifier.fillMaxWidth())
@@ -230,7 +236,7 @@ fun StrategyCard(state: AppState, s: DayStrategy, showChart: Boolean = true, sho
                 color = if (done) EvGreen else Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp).clip(RoundedCornerShape(10.dp))
-                    .background(if (done) EvGreen.copy(alpha = 0.1f) else Surface)
+                    .background(if (done) NavySoft else Surface)
                     .border(1.dp, if (done) Color.Transparent else Line, RoundedCornerShape(10.dp))
                     .clickable { if (!done) { state.done += a.key; state.showToast(a.done) } }
                     .padding(vertical = 11.dp),
@@ -247,13 +253,13 @@ fun PleosButton(state: AppState, s: DayStrategy) {
     Button(
         onClick = { if (!synced) state.sendToPleos(s.date) },
         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-        shape = RoundedCornerShape(10.dp),
+        shape = RoundedCornerShape(8.dp),
         colors = ButtonDefaults.buttonColors(
-            containerColor = if (synced) EvGreen.copy(alpha = 0.12f) else Blue,
-            contentColor = if (synced) EvGreen else Surface,
+            containerColor = if (synced) NavySoft else Navy,
+            contentColor = if (synced) Navy else Surface,
         ),
     ) {
-        Text(if (synced) "✓ 차량(Pleos)에 최종 전략 반영됨" else "🚗 Pleos로 보내기 · 주행 데이터로 확정",
+        Text(if (synced) "✓ 차량(Pleos)에 최종 전략 반영됨" else "Pleos로 보내기 · 주행 데이터로 확정",
             fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
     }
 }
@@ -330,7 +336,10 @@ fun BouncyLrrr(greetKey: Any, width: Dp, modifier: Modifier = Modifier) {
     }
 }
 
-private val bubbleText = AppText.copy(fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.Bold, lineBreak = LineBreak.Heading)
+/** 차량 앱 말풍선과 같은 톤: 연한 웜 그레이 배경 + 테두리 없음 */
+private val BubbleBg = Field
+private val BubbleText = Color(0xFF333231)
+private val bubbleText = AppText.copy(fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.Medium, lineBreak = LineBreak.Heading)
 
 @Composable
 fun SpeechBubble(message: String, modifier: Modifier = Modifier, animate: Boolean = true) {
@@ -351,20 +360,18 @@ fun SpeechBubble(message: String, modifier: Modifier = Modifier, animate: Boolea
         }
     ) {
         Box(
-            Modifier.border(2.dp, Ink, RoundedCornerShape(16.dp)).background(Color.White, RoundedCornerShape(16.dp))
-                .padding(horizontal = 14.dp, vertical = 10.dp)
+            Modifier.background(BubbleBg, RoundedCornerShape(14.dp))
+                .padding(horizontal = 14.dp, vertical = 11.dp)
         ) {
             Text(message, style = bubbleText, color = Color.Transparent)
-            Text(message.take(shown), style = bubbleText, color = Ink)
+            Text(message.take(shown), style = bubbleText, color = BubbleText)
         }
         Canvas(Modifier.fillMaxWidth().height(18.dp)) {
             val baseL = size.width - 40.dp.toPx()
             val baseR = size.width - 20.dp.toPx()
             val tip = Offset(size.width + 16.dp.toPx(), size.height)
             val tail = Path().apply { moveTo(baseL, -2.dp.toPx()); lineTo(tip.x, tip.y); lineTo(baseR, -2.dp.toPx()); close() }
-            drawPath(tail, Color.White)
-            drawLine(Ink, Offset(baseL, -1.dp.toPx()), tip, 2.dp.toPx(), cap = StrokeCap.Round)
-            drawLine(Ink, Offset(baseR, -1.dp.toPx()), tip, 2.dp.toPx(), cap = StrokeCap.Round)
+            drawPath(tail, BubbleBg)
         }
     }
 }

@@ -37,7 +37,10 @@ class MainActivity : ComponentActivity() {
         setContent {
             MaterialTheme(
                 typography = AppTypography,
-                colorScheme = lightColorScheme(primary = Blue, background = Bg, surface = Surface, onSurface = Ink),
+                colorScheme = lightColorScheme(
+                    primary = Navy, onPrimary = Color.White, secondary = Navy, background = Bg,
+                    surface = Surface, onSurface = Ink, surfaceContainerHigh = Surface, outline = Line,
+                ),
             ) { PhoneApp() }
         }
     }
@@ -207,7 +210,8 @@ class AppState(val today: LocalDate, private val prefs: SharedPreferences? = nul
     }
 }
 
-private val Tabs = listOf("🏠" to "오늘", "📅" to "캘린더", "" to "르르르", "🚗" to "차량")
+/** 하단 탭 — 차량 앱 사이드바처럼 라인 아이콘 (르르르 탭만 캐릭터) */
+private val Tabs = listOf(Ic.Home to "오늘", Ic.Calendar to "캘린더", null to "르르르", Ic.Car to "차량")
 
 @Composable
 fun PhoneApp() {
@@ -289,12 +293,16 @@ private fun BottomNav(state: AppState) {
                     Modifier.weight(1f).fillMaxHeight().clickable { state.tab = i },
                     horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
                 ) {
-                    Box {
-                        if (i == 2) LrrrAvatar(26.dp) else Text(icon, fontSize = 20.sp)
-                        if (i == 2 && state.unread) Box(Modifier.align(Alignment.TopEnd).size(8.dp).clip(RoundedCornerShape(4.dp)).background(Color(0xFFE5484D)))
+                    Box(
+                        Modifier.clip(RoundedCornerShape(14.dp)).background(if (active) NavySoft else Color.Transparent)
+                            .padding(horizontal = 16.dp, vertical = 3.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (icon == null) LrrrAvatar(26.dp) else LineIcon(icon, if (active) Navy else Faint, size = 24.dp)
+                        if (i == 2 && state.unread) Box(Modifier.align(Alignment.TopEnd).size(8.dp).clip(RoundedCornerShape(4.dp)).background(Navy))
                     }
-                    Spacer(Modifier.height(2.dp))
-                    Text(label, fontSize = 11.sp, color = if (active) Blue else Faint,
+                    Spacer(Modifier.height(3.dp))
+                    Text(label, fontSize = 11.sp, color = if (active) Navy else Faint,
                         fontWeight = if (active) FontWeight.Bold else FontWeight.Medium)
                 }
             }
