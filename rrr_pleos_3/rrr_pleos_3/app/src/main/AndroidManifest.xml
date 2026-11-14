@@ -20,6 +20,8 @@
         <intent>
             <action android:name="android.speech.action.RECOGNIZE_SPEECH" />
         </intent>
+        <!-- WE'R Widget 설정 연동: Pleos Connect 시뮬레이터(:pleos_connect) 앱을 찾기 위한 패키지 가시성 -->
+        <package android:name="com.example.pleosconnect" />
     </queries>
 
     <application

@@ -26,3 +26,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "RRR"
 include(":app")
+// Pleos Connect 차량 화면 시뮬레이터 (We'r ev 위젯 설정 연동용, 별도 앱)
+include(":pleos_connect")
