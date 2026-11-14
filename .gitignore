@@ -1,0 +1,22 @@
+# 빌드 산출물 · 캐시
+build/
+.gradle/
+.kotlin/
+.cxx/
+.externalNativeBuild/
+captures/
+*.apk
+*.aab
+
+# 로컬 환경 (SDK 경로 등)
+local.properties
+
+# IDE
+.idea/
+*.iml
+
+# OS
+.DS_Store
+._*
+__MACOSX/
+Thumbs.db

@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pleos Connect · We'r ev 주행 시나리오</title>
+<style>
+  @font-face { font-family: 'Pretendard'; font-weight: 400; src: url('fonts/pretendard_regular.otf'); }
+  @font-face { font-family: 'Pretendard'; font-weight: 500; src: url('fonts/pretendard_medium.otf'); }
+  @font-face { font-family: 'Pretendard'; font-weight: 600; src: url('fonts/pretendard_semibold.otf'); }
+  @font-face { font-family: 'Pretendard'; font-weight: 700; src: url('fonts/pretendard_bold.otf'); }
+  @font-face { font-family: 'Pretendard'; font-weight: 800; src: url('fonts/pretendard_extrabold.otf'); }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #dfe2e8; }
+  body { font-family: 'Pretendard', -apple-system, system-ui, Roboto, sans-serif; color: #1c1f26; -webkit-font-smoothing: antialiased; user-select: none; }
+
+  /* 1600 x 880 디자인 캔버스를 화면에 맞춰 스케일 */
+  #stage { position: absolute; left: 0; top: 0; width: 1600px; height: 880px; transform-origin: 0 0; }
+  .screen {
+    position: absolute; inset: 22px; border-radius: 36px; background: #f3f4f7;
+    box-shadow: 0 18px 50px rgba(30, 35, 60, .14), inset 0 0 0 1px rgba(255,255,255,.9);
+    padding: 26px 28px; display: grid; gap: 12px;
+    grid-template-columns: 450px 1fr 340px; grid-template-rows: 44px 1fr 84px;
+  }
+  .card { background: #fff; border-radius: 22px; box-shadow: 0 2px 10px rgba(30, 35, 60, .05); position: relative; overflow: hidden; }
+
+  /* ───────── 계기판 ───────── */
+  .cluster { grid-column: 1; grid-row: 1 / 3; padding: 22px 26px 0; display: flex; flex-direction: column; }
+  .c-top { display: flex; align-items: flex-start; }
+  .speed { font-size: 76px; font-weight: 700; line-height: .9; letter-spacing: -2px; min-width: 120px; }
+  .speed-unit { font-size: 15px; color: #4b5060; margin-top: 8px; }
+  .gear { font-size: 30px; font-weight: 700; margin: 2px 0 0 54px; }
+  .c-range { margin-left: auto; text-align: right; }
+  .c-range .row { display: flex; align-items: center; gap: 7px; font-size: 17px; font-weight: 600; }
+  .bat-pill { background: #1c1f26; color: #fff; font-size: 12px; font-weight: 700; border-radius: 5px; padding: 1px 7px; position: relative; }
+  .bat-pill::after { content: ''; position: absolute; right: -4px; top: 5px; width: 3px; height: 7px; background: #1c1f26; border-radius: 0 2px 2px 0; }
+  .ready { color: #16a34a; font-size: 12px; font-weight: 700; margin-top: 8px; letter-spacing: .5px; }
+  .c-guide { display: flex; align-items: center; margin-top: 20px; gap: 22px; }
+  .limit { width: 52px; height: 52px; border-radius: 50%; border: 5px solid #e5484d; display: grid; place-items: center; font-size: 19px; font-weight: 800; }
+  .g-main .d { font-size: 30px; font-weight: 700; letter-spacing: -.5px; }
+  .g-main .d .ic { font-size: 28px; margin-right: 6px; }
+  .g-main .s { font-size: 11px; color: #8a8f9c; margin-top: 2px; }
+  .g-next { align-self: flex-start; font-size: 14px; font-weight: 600; margin-top: 6px; color: #2d313b; }
+  .road { position: relative; flex: 1; margin: 6px -26px 100px; }
+  .road svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .lane-dash { stroke-dasharray: 18 22; animation: laneMove .55s linear infinite; }
+  @keyframes laneMove { to { stroke-dashoffset: -40; } }
+  .odo { position: absolute; left: 26px; bottom: 112px; font-size: 15px; font-weight: 600; }
+  .lv { position: absolute; right: 26px; bottom: 108px; text-align: right; font-size: 14px; font-weight: 700; line-height: 1.35; }
+  .lv small { display: block; font-size: 12px; font-weight: 500; color: #4b5060; }
+  .media { position: absolute; left: 14px; right: 14px; bottom: 14px; height: 78px; border-radius: 16px; background: #f4f5f8; display: flex; align-items: center; padding: 0 16px; gap: 18px; }
+  .media .ctl { font-size: 11px; letter-spacing: 3px; color: #2d313b; }
+  .media .t { font-size: 15px; font-weight: 700; }
+  .media .a { font-size: 11px; color: #8a8f9c; margin-top: 2px; }
+  .media .art { margin-left: auto; width: 46px; height: 46px; border-radius: 10px; background: linear-gradient(135deg, #a855f7, #ec4899 60%, #f59e0b); }
+
+  /* ───────── 상단 상태바 ───────── */
+  .statusbar { grid-column: 2 / 4; grid-row: 1; display: flex; align-items: center; padding: 0 12px; gap: 22px; }
+  .statusbar svg { width: 20px; height: 20px; }
+  .sb-right { margin-left: auto; display: flex; align-items: center; gap: 20px; font-size: 13px; font-weight: 700; }
+  .lte { display: flex; align-items: flex-end; gap: 2px; }
+  .lte i { width: 4px; background: #1c1f26; display: block; }
+  .avatar { width: 26px; height: 26px; border-radius: 50%; background: #e3e5ea; }
+  .clock { font-size: 20px; font-weight: 700; letter-spacing: -.3px; }
+
+  /* ───────── 지도 ───────── */
+  .map { grid-column: 2; grid-row: 2; }
+  .map canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .nav-card { position: absolute; left: 14px; top: 14px; width: 270px; border-radius: 14px; background: #fff; box-shadow: 0 6px 20px rgba(30,35,60,.12); overflow: hidden; }
+  .nav-card .top { padding: 14px 18px 8px; display: flex; gap: 12px; align-items: flex-start; }
+  .nav-card .ic { font-size: 34px; font-weight: 700; line-height: 1; width: 34px; text-align: center; }
+  .nav-card .dist { font-size: 30px; font-weight: 800; letter-spacing: -.5px; line-height: 1; }
+  .nav-card .street { font-size: 11px; color: #8a8f9c; margin-top: 4px; }
+  .lanes { display: flex; justify-content: space-between; padding: 6px 22px 10px; font-size: 15px; font-weight: 700; color: #c9cdd6; }
+  .lanes span.on { color: #1c1f26; }
+  .nav-card .next { background: #f4f5f8; padding: 9px 18px; font-size: 16px; font-weight: 700; display: flex; gap: 10px; align-items: center; }
+  .map-btns { position: absolute; right: 14px; top: 14px; display: flex; flex-direction: column; gap: 8px; }
+  .map-btn { width: 34px; height: 34px; border-radius: 50%; background: #fff; display: grid; place-items: center; font-size: 11px; font-weight: 800; box-shadow: 0 3px 10px rgba(30,35,60,.12); }
+  .map-btn.gear { position: absolute; right: 14px; bottom: 16px; font-size: 16px; }
+  .eta { position: absolute; left: 14px; bottom: 14px; width: 270px; border-radius: 14px; background: #fff; box-shadow: 0 6px 20px rgba(30,35,60,.12); padding: 14px 16px 12px; }
+  .eta .r1 { display: flex; justify-content: space-between; font-size: 14px; font-weight: 700; }
+  .eta .r1 span:last-child { font-weight: 600; }
+  .eta .dest { font-size: 11px; color: #4b5060; margin-top: 4px; display: flex; align-items: center; gap: 5px; }
+  .eta .dest i { width: 9px; height: 9px; border-radius: 50%; border: 2px solid #3b82f6; display: inline-block; }
+  .eta .btns { display: grid; grid-template-columns: 1.6fr 1fr 1fr; gap: 6px; margin-top: 12px; }
+  .eta .btns div { height: 30px; border-radius: 8px; background: #f1f2f5; display: grid; place-items: center; font-size: 13px; color: #4b5060; }
+  .road-pill { position: absolute; left: 50%; bottom: 16px; transform: translateX(-12%); background: #fff; border-radius: 999px; padding: 6px 14px; font-size: 12px; font-weight: 600; box-shadow: 0 3px 10px rgba(30,35,60,.12); }
+  .toast {
+    position: absolute; left: 50%; top: 14px; transform: translate(-50%, -12px); opacity: 0;
+    background: rgba(28, 31, 38, .9); color: #fff; font-size: 13px; font-weight: 600; padding: 8px 16px; border-radius: 999px;
+    transition: opacity .35s ease, transform .35s ease; white-space: nowrap; pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  /* ───────── 르르르 위젯 (We'r ev) ───────── */
+  .widget { grid-column: 3; grid-row: 2; padding: 18px 18px 20px; display: flex; flex-direction: column; border: 1.5px solid #ebe7fb; box-shadow: 0 0 24px rgba(167,139,250,.16); }
+  .w-head { display: flex; align-items: center; justify-content: space-between; }
+  .w-logo { font-size: 17px; font-weight: 800; letter-spacing: -.3px; }
+  .w-logo b { color: #22c55e; font-weight: 800; }
+  .badge { font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 999px; transition: background .5s, color .5s; }
+  .badge.ev { background: #dcfce7; color: #16a34a; }
+  .badge.gen { background: #fef3c7; color: #d97706; }
+  .w-stage { width: 300px; height: 262px; margin: 26px auto 8px; flex: none; }
+  .w-label { align-self: center; margin-top: 4px; font-size: 13px; font-weight: 600; letter-spacing: -.2px; padding: 7px 14px; border-radius: 999px; background: #fff; border: 1px solid rgba(0,196,154,.35); display: inline-flex; gap: 6px; transition: border-color .5s; }
+  .w-label.gen { border-color: rgba(245,166,35,.4); }
+  .w-sep { height: 1px; background: #eceef2; margin: auto 0 14px; }
+  .w-row { display: flex; justify-content: space-between; font-size: 12px; color: #4b5060; }
+  .w-row b { color: #1c1f26; font-weight: 700; }
+  .w-bar { height: 6px; border-radius: 3px; background: #eceef2; margin: 8px 0 18px; overflow: hidden; }
+  .w-bar i { display: block; height: 100%; border-radius: 3px; background: #22c55e; transition: width .8s ease, background .6s ease; }
+  .w-bar i.gen { background: #f59e0b; }
+
+  /* ───────── 하단 독 ───────── */
+  .dock { grid-column: 1 / 4; grid-row: 3; display: flex; align-items: center; padding: 0 30px; }
+  .climate { display: flex; align-items: center; gap: 14px; }
+  .temp { text-align: center; }
+  .temp .v { font-size: 28px; font-weight: 700; letter-spacing: -.5px; }
+  .temp .v em { font-style: normal; color: #e5484d; font-size: 20px; margin: 0 8px; vertical-align: 3px; }
+  .temp .v em.l { color: #3b82f6; }
+  .temp small { display: block; font-size: 9px; font-weight: 700; color: #16a34a; margin-top: -2px; }
+  .dock .mini { font-size: 18px; color: #4b5060; }
+  .apps { margin: 0 auto; display: flex; align-items: center; gap: 14px; }
+  .app { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; color: #fff; font-size: 19px; font-weight: 800; }
+  .app.dots { background: none; color: #4b5060; width: 22px; }
+  .app.sep { width: 1px; height: 26px; background: #dfe2e8; border-radius: 0; margin: 0 4px; }
+  .auto { text-align: center; font-size: 13px; font-weight: 700; margin-right: 26px; }
+  .auto small { display: block; font-size: 9px; }
+
+  /* 디버그용 설정 표시 (브라우저 미리보기 시만) */
+  .settings-chip { position: absolute; right: 22px; top: 16px; font-size: 10px; color: #8a8f9c; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="screen">
+
+    <!-- 계기판 -->
+    <section class="card cluster">
+      <div class="c-top">
+        <div>
+          <div class="speed" id="speed">64</div>
+          <div class="speed-unit">km/h</div>
+        </div>
+        <div class="gear">D</div>
+        <div class="c-range">
+          <div class="row"><span id="range">347km</span><span style="font-size:13px">🔌</span><span class="bat-pill" id="batPill">24</span></div>
+          <div class="ready">READY</div>
+        </div>
+      </div>
+      <div class="c-guide">
+        <div class="limit">60</div>
+        <div class="g-main">
+          <div class="d"><span class="ic" id="cIc">↱</span><span id="cDist">590m</span></div>
+          <div class="s" id="cStreet">양재대로</div>
+        </div>
+        <div class="g-next" id="cNext">↰ 310m</div>
+      </div>
+      <div class="road">
+        <svg viewBox="0 0 450 330" preserveAspectRatio="xMidYMax meet">
+          <defs>
+            <linearGradient id="roadG" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#f3f4f7" stop-opacity="0" />
+              <stop offset=".35" stop-color="#eef0f3" />
+              <stop offset="1" stop-color="#e4e7ec" />
+            </linearGradient>
+          </defs>
+          <path d="M 196 0 L 254 0 L 430 330 L 20 330 Z" fill="url(#roadG)" />
+          <line class="lane-dash" x1="214" y1="0" x2="150" y2="330" stroke="#c4c8d0" stroke-width="3" />
+          <line class="lane-dash" x1="236" y1="0" x2="300" y2="330" stroke="#c4c8d0" stroke-width="3" />
+          <line x1="200" y1="0" x2="60" y2="330" stroke="#d5d8de" stroke-width="2" />
+          <line x1="250" y1="0" x2="390" y2="330" stroke="#d5d8de" stroke-width="2" />
+          <!-- 앞차들 -->
+          <rect x="210" y="66" width="18" height="12" rx="3" fill="#d8dbe1" />
+          <rect x="250" y="128" width="26" height="17" rx="4" fill="#d8dbe1" />
+          <!-- 내 차 (후면) -->
+          <g transform="translate(150 178)">
+            <ellipse cx="75" cy="112" rx="82" ry="9" fill="#000" opacity=".12" />
+            <path d="M 14 34 Q 18 8 40 6 L 110 6 Q 132 8 136 34 L 142 58 L 142 100 Q 142 108 134 108 L 16 108 Q 8 108 8 100 L 8 58 Z" fill="#17181c" />
+            <path d="M 28 14 L 122 14 Q 128 16 130 30 L 132 44 L 18 44 L 20 30 Q 22 16 28 14 Z" fill="#3b3f48" />
+            <path d="M 34 18 L 70 18 L 54 40 L 24 40 Z" fill="#565b66" opacity=".5" />
+            <rect x="8" y="56" width="134" height="6" rx="3" fill="#e5484d" />
+            <rect x="8" y="54" width="22" height="10" rx="3" fill="#ff5a5f" />
+            <rect x="120" y="54" width="22" height="10" rx="3" fill="#ff5a5f" />
+            <ellipse cx="75" cy="72" rx="9" ry="5" fill="none" stroke="#9aa0ab" stroke-width="2" />
+            <rect x="52" y="80" width="46" height="13" rx="2" fill="#f5f6f8" />
+            <text x="75" y="90" text-anchor="middle" font-size="7.5" font-weight="700" fill="#1c1f26" font-family="Pretendard, sans-serif">12가 3456</text>
+            <rect x="14" y="98" width="28" height="14" rx="3" fill="#0d0e10" />
+            <rect x="108" y="98" width="28" height="14" rx="3" fill="#0d0e10" />
+          </g>
+        </svg>
+      </div>
+      <div class="odo" id="odo">5035.1km</div>
+      <div class="lv">Lv 1<small>26°C</small></div>
+      <div class="media">
+        <div class="ctl">⏮ ⏸ ⏭</div>
+        <div>
+          <div class="t">차량용 인포테인먼트 시스템</div>
+          <div class="a">현대자동차그룹(HYUNDAI)</div>
+        </div>
+        <div class="art"></div>
+      </div>
+    </section>
+
+    <!-- 상태바 -->
+    <div class="statusbar">
+      <svg viewBox="0 0 24 24" fill="#1c1f26"><path d="M7 10V7a5 5 0 0 1 10 0v3h1a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1zm2 0h6V7a3 3 0 0 0-6 0z"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="#1c1f26" stroke-width="2.6"><circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5" stroke-linecap="round"/></svg>
+      <svg viewBox="0 0 24 24" fill="#1c1f26"><path d="M12 3a6 6 0 0 0-6 6v4l-2 3h16l-2-3V9a6 6 0 0 0-6-6zm-2 15a2 2 0 0 0 4 0z"/><circle cx="18" cy="5" r="3.2" fill="#e5484d"/></svg>
+      <div class="sb-right">
+        <span style="display:flex;align-items:flex-end;gap:5px">LTE <span class="lte"><i style="height:4px"></i><i style="height:6px"></i><i style="height:8px"></i><i style="height:10px"></i><i style="height:12px"></i></span></span>
+        <svg viewBox="0 0 24 24" fill="#1c1f26"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16 8a5 5 0 0 1 0 8M18.5 5.5a8.5 8.5 0 0 1 0 13" stroke="#1c1f26" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
+        <span style="color:#3b82f6;font-size:18px">✱</span>
+        <span class="avatar"></span>
+        <span class="clock" id="clock">9:27 PM</span>
+      </div>
+    </div>
+
+    <!-- 지도 + 내비 -->
+    <section class="card map" id="map">
+      <canvas id="mapCanvas"></canvas>
+      <div class="nav-card">
+        <div class="top">
+          <div class="ic" id="nIc">↱</div>
+          <div>
+            <div class="dist" id="nDist">590m</div>
+            <div class="street" id="nStreet">양재대로</div>
+          </div>
+        </div>
+        <div class="lanes" id="lanes"><span>↰</span><span>↑</span><span>↑</span><span>↑</span><span>↱</span><span>↱</span></div>
+        <div class="next"><span id="nNextIc">↰</span><span id="nNext">310m</span></div>
+      </div>
+      <div class="map-btns"><div class="map-btn">2D</div><div class="map-btn">≡</div></div>
+      <div class="map-btn gear">⚙</div>
+      <div class="eta">
+        <div class="r1"><span id="etaTime">9:54 PM</span><span id="etaRemain">27분 · 31.2km</span></div>
+        <div class="dest"><i></i>회사</div>
+        <div class="btns"><div>✕</div><div>↻</div><div>⌕</div></div>
+      </div>
+      <div class="road-pill" id="roadPill">서초구 양재대로</div>
+      <div class="toast" id="toast"></div>
+    </section>
+
+    <!-- 르르르 위젯 -->
+    <section class="card widget">
+      <div class="w-head">
+        <div class="w-logo">We'r <b>ev</b></div>
+        <div class="badge ev" id="badge">EV 주행</div>
+      </div>
+      <div class="w-stage" id="wStage"></div>
+      <div class="w-label" id="wLabel"><span>🔋</span><span>EV 주행 · 배터리 전기 사용 중</span></div>
+      <div class="w-sep"></div>
+      <div class="w-row"><span>배터리</span><b id="wBat">24%</b></div>
+      <div class="w-bar"><i id="wBar" style="width:24%"></i></div>
+      <div class="w-row"><span>오늘 전기 주행 비율</span><b id="wRatio">78%</b></div>
+    </section>
+
+    <!-- 하단 독 -->
+    <div class="card dock">
+      <div class="climate">
+        <svg width="34" height="22" viewBox="0 0 34 22"><path d="M4 14 L7 6 Q8 3 12 3 L22 3 Q26 3 27 6 L30 14 L30 19 L4 19 Z" fill="#e5484d"/><rect x="9" y="6" width="16" height="5" rx="1.5" fill="#fff" opacity=".85"/><circle cx="9" cy="19" r="2.6" fill="#1c1f26"/><circle cx="25" cy="19" r="2.6" fill="#1c1f26"/></svg>
+        <div class="temp"><div class="v"><em class="l">‹</em>23.5°<em>›</em></div><small>A/C</small></div>
+        <span class="mini">⦚</span><span class="mini">▦</span>
+      </div>
+      <div class="apps">
+        <div class="app" style="background:#5b6170">✥</div>
+        <div class="app" style="background:#a855f7">♪</div>
+        <div class="app" style="background:#16a34a">✆</div>
+        <div class="app" style="background:#3b82f6">➤</div>
+        <div class="app dots">⁘</div>
+        <div class="app sep"></div>
+        <div class="app" style="background:#22c55e;font-size:13px">ev</div>
+        <div class="app" style="background:#ec4899">◉</div>
+      </div>
+      <div class="auto">❄3<small>AUTO</small></div>
+      <div class="temp"><div class="v"><em class="l">‹</em>23.5°<em>›</em></div><small>SYNC</small></div>
+    </div>
+
+  </div>
+</div>
+
+<script src="rrr-widget.js"></script>
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+
+  // ───────── 화면 맞춤 ─────────
+  var stage = $('stage'), scale = 1;
+  function fit() {
+    scale = Math.min(window.innerWidth / 1600, window.innerHeight / 880);
+    stage.style.transform = 'translate(' + ((window.innerWidth - 1600 * scale) / 2) + 'px,' +
+      ((window.innerHeight - 880 * scale) / 2) + 'px) scale(' + scale + ')';
+    sizeCanvas();
+  }
+
+  // ───────── 위젯 설정 (르르링 앱 → PleosBridge) ─────────
+  var settings = { anim: 'auto', motion: 'normal', toast: true };
+  function readInitialSettings() {
+    try {
+      if (window.PleosBridge && PleosBridge.getSettings) return JSON.parse(PleosBridge.getSettings());
+    } catch (e) { /* 기본값 사용 */ }
+    var q = new URLSearchParams(location.search), s = {};
+    if (q.get('anim')) s.anim = q.get('anim');
+    if (q.get('motion')) s.motion = q.get('motion');
+    if (q.get('toast')) s.toast = q.get('toast') !== '0';
+    return s;
+  }
+  function sanitize(s) {
+    var out = {};
+    if (s.anim === 'auto' || s.anim === 'gen' || s.anim === 'ev') out.anim = s.anim;
+    if (s.motion === 'normal' || s.motion === 'calm' || s.motion === 'off') out.motion = s.motion;
+    if (typeof s.toast === 'boolean') out.toast = s.toast;
+    return out;
+  }
+
+  var widget = RrrWidget.mount($('wStage'), { mode: 'ev', motion: 'normal' });
+  var driveMode = 'ev';
+
+  function syncWidgetAnim() {
+    widget.setMode(settings.anim === 'auto' ? driveMode : settings.anim);
+  }
+  var ANIM_TEXT = { auto: '자동 전환', gen: '발전 애니메이션 고정', ev: 'EV 애니메이션 고정' };
+  var MOTION_TEXT = { normal: '기본 움직임', calm: '차분하게', off: '멈춤' };
+
+  /** Android(PleosConnectActivity)에서 르르링 설정이 바뀌면 호출 */
+  window.applyWidgetSettings = function (s, fromApp) {
+    if (typeof s === 'string') { try { s = JSON.parse(s); } catch (e) { return; } }
+    Object.assign(settings, sanitize(s || {}));
+    widget.setMotion(settings.motion);
+    syncWidgetAnim();
+    if (fromApp) showToast('🐛 르르링 위젯 설정 · ' + ANIM_TEXT[settings.anim] + ' · ' + MOTION_TEXT[settings.motion], true);
+  };
+
+  // ───────── 토스트 ─────────
+  var toastTimer = null;
+  function showToast(text, force) {
+    if (!settings.toast && !force) return;
+    var el = $('toast');
+    el.textContent = text;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.classList.remove('show'); }, 4000);
+  }
+
+  // ───────── 경로 (100m 격자 도로 위의 순환 경로, 모서리는 둥글게) ─────────
+  var V = [[0, 0], [0, -600], [500, -600], [500, -1100], [1100, -1100], [1100, 0]];
+  var SEG = [ // V[i] → V[i+1] 구간의 도로 이름 / 지역
+    ['양재대로', '서초구 양재대로'], ['남부순환로', '강남구 남부순환로'], ['수서IC, 일원IC', '강남구 수서동'],
+    ['광평로', '강남구 일원동'], ['밤고개로', '강남구 자곡동'], ['헌릉로', '서초구 내곡동']
+  ];
+  var R = 26, PTS = [], CUM = [], TURN_S = [], L = 0;
+  (function buildRoute() {
+    var n = V.length;
+    function sub(a, b) { return [a[0] - b[0], a[1] - b[1]]; }
+    function norm(v) { var l = Math.hypot(v[0], v[1]); return [v[0] / l, v[1] / l]; }
+    var cs = [], ce = [];
+    for (var i = 0; i < n; i++) {
+      var prev = V[(i - 1 + n) % n], cur = V[i], next = V[(i + 1) % n];
+      var din = norm(sub(cur, prev)), dout = norm(sub(next, cur));
+      cs.push([cur[0] - din[0] * R, cur[1] - din[1] * R]);
+      ce.push([cur[0] + dout[0] * R, cur[1] + dout[1] * R]);
+    }
+    function push(p) {
+      if (PTS.length) { var q = PTS[PTS.length - 1]; L += Math.hypot(p[0] - q[0], p[1] - q[1]); }
+      PTS.push(p); CUM.push(L);
+    }
+    for (var k = 0; k < n; k++) {
+      var i0 = k, i1 = (k + 1) % n;
+      var a = ce[i0], b = cs[i1], len = Math.hypot(b[0] - a[0], b[1] - a[1]), steps = Math.ceil(len / 4);
+      for (var s = 0; s < steps; s++) push([a[0] + (b[0] - a[0]) * s / steps, a[1] + (b[1] - a[1]) * s / steps]);
+      // 모서리 (2차 베지어)
+      var c = V[i1], e = ce[i1];
+      for (var j = 0; j < 12; j++) {
+        var t = j / 12, u = 1 - t;
+        push([u * u * b[0] + 2 * u * t * c[0] + t * t * e[0], u * u * b[1] + 2 * u * t * c[1] + t * t * e[1]]);
+        if (j === 6) TURN_S[i1] = CUM[CUM.length - 1];
+      }
+    }
+    push(ce[0]);
+  })();
+
+  function turnDir(i) { // V[i]에서의 회전: 1 = 우회전, -1 = 좌회전
+    var n = V.length, p = V[(i - 1 + n) % n], c = V[i], q = V[(i + 1) % n];
+    var din = [c[0] - p[0], c[1] - p[1]], dout = [q[0] - c[0], q[1] - c[1]];
+    return din[0] * dout[1] - din[1] * dout[0] > 0 ? 1 : -1;
+  }
+  function locate(s) {
+    s = ((s % L) + L) % L;
+    var lo = 0, hi = CUM.length - 1;
+    while (lo < hi - 1) { var mid = (lo + hi) >> 1; if (CUM[mid] <= s) lo = mid; else hi = mid; }
+    var a = PTS[lo], b = PTS[hi], f = (s - CUM[lo]) / Math.max(1e-6, CUM[hi] - CUM[lo]);
+    return { x: a[0] + (b[0] - a[0]) * f, y: a[1] + (b[1] - a[1]) * f, h: Math.atan2(b[0] - a[0], -(b[1] - a[1])), i: lo };
+  }
+  function upcomingTurns(s) {
+    s = ((s % L) + L) % L;
+    var list = [];
+    for (var lap = 0; lap < 2; lap++) {
+      for (var i = 0; i < V.length; i++) {
+        var ts = TURN_S[i] + lap * L;
+        if (ts > s + 1) list.push({ i: i, d: ts - s });
+      }
+    }
+    list.sort(function (a, b) { return a.d - b.d; });
+    return list;
+  }
+  function segmentAt(s) { // 현재 달리는 도로 index
+    var t = upcomingTurns(s)[0];
+    return (t.i - 1 + V.length) % V.length;
+  }
+
+  // ───────── 지도 렌더링 ─────────
+  var canvas = $('mapCanvas'), ctx = canvas.getContext('2d');
+  var MW = 0, MH = 0, PPM = 1.15;
+  function sizeCanvas() {
+    var r = $('map');
+    MW = r.offsetWidth; MH = r.offsetHeight;
+    var k = scale * (window.devicePixelRatio || 1);
+    canvas.width = Math.round(MW * k); canvas.height = Math.round(MH * k);
+  }
+  function rand(bx, by, n) {
+    var h = (bx * 374761393 + by * 668265263 + n * 2147483647) | 0;
+    h = Math.imul(h ^ (h >>> 13), 1274126177);
+    return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+  }
+  var POI = ['#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#3b82f6'];
+
+  var camH = null;
+  function drawMap(s, dt) {
+    var car = locate(s);
+    if (camH == null) camH = car.h;
+    var dh = car.h - camH;
+    while (dh > Math.PI) dh -= 2 * Math.PI;
+    while (dh < -Math.PI) dh += 2 * Math.PI;
+    camH += dh * Math.min(1, dt * 5);
+
+    var k = scale * (window.devicePixelRatio || 1);
+    ctx.setTransform(k, 0, 0, k, 0, 0);
+    ctx.fillStyle = '#fbfbfc';
+    ctx.fillRect(0, 0, MW, MH);
+
+    var cx = MW / 2, cy = MH * 0.73;
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(-camH);
+    ctx.scale(PPM, PPM);
+    ctx.translate(-car.x, -car.y);
+
+    var rad = Math.hypot(MW, MH) / PPM;
+    var bx0 = Math.floor((car.x - rad) / 100), bx1 = Math.floor((car.x + rad) / 100);
+    var by0 = Math.floor((car.y - rad) / 100), by1 = Math.floor((car.y + rad) / 100);
+
+    // 블록 · 건물 · 공원
+    for (var bx = bx0; bx <= bx1; bx++) {
+      for (var by = by0; by <= by1; by++) {
+        var x0 = bx * 100 + 8, y0 = by * 100 + 8, sz = 84;
+        var park = rand(bx, by, 1) < 0.12;
+        ctx.fillStyle = park ? '#dff2e2' : '#eef0f3';
+        ctx.strokeStyle = park ? '#cfe8d4' : '#e2e5ea';
+        ctx.lineWidth = 1 / PPM;
+        ctx.beginPath(); ctx.rect(x0, y0, sz, sz); ctx.fill(); ctx.stroke();
+        if (!park) {
+          var nb = 1 + Math.floor(rand(bx, by, 2) * 3);
+          for (var b = 0; b < nb; b++) {
+            var w = 18 + rand(bx, by, 10 + b) * 26, h = 14 + rand(bx, by, 20 + b) * 24;
+            var bx_ = x0 + 6 + rand(bx, by, 30 + b) * (sz - 12 - w), by_ = y0 + 6 + rand(bx, by, 40 + b) * (sz - 12 - h);
+            ctx.fillStyle = '#e1e4e9'; ctx.strokeStyle = '#d3d7de';
+            ctx.beginPath(); ctx.rect(bx_, by_, w, h); ctx.fill(); ctx.stroke();
+          }
+        }
+        if (rand(bx, by, 3) < 0.28) {
+          ctx.fillStyle = POI[Math.floor(rand(bx, by, 4) * POI.length)];
+          ctx.beginPath();
+          ctx.arc(x0 + 12 + rand(bx, by, 5) * 60, y0 + 12 + rand(bx, by, 6) * 60, 3.6 / PPM, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+
+    // 큰길 중앙 점선
+    ctx.strokeStyle = 'rgba(234, 196, 120, .55)';
+    ctx.lineWidth = 1.4 / PPM;
+    ctx.setLineDash([6 / PPM, 6 / PPM]);
+    for (var gx = Math.ceil(bx0 / 3) * 3; gx <= bx1; gx += 3) {
+      ctx.beginPath(); ctx.moveTo(gx * 100, by0 * 100); ctx.lineTo(gx * 100, (by1 + 1) * 100); ctx.stroke();
+    }
+    for (var gy = Math.ceil(by0 / 3) * 3; gy <= by1; gy += 3) {
+      ctx.beginPath(); ctx.moveTo(bx0 * 100, gy * 100); ctx.lineTo((bx1 + 1) * 100, gy * 100); ctx.stroke();
+    }
+    ctx.setLineDash([]);
+
+    // 안내 경로 (차 위치부터 앞쪽만)
+    ctx.beginPath();
+    ctx.moveTo(car.x, car.y);
+    for (var d = 4; d < 1300; d += 4) { var p = locate(s + d); ctx.lineTo(p.x, p.y); }
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.strokeStyle = 'rgba(21, 128, 61, .55)'; ctx.lineWidth = 15 / PPM; ctx.stroke();
+    ctx.strokeStyle = '#22c55e'; ctx.lineWidth = 10 / PPM; ctx.stroke();
+    ctx.restore();
+
+    // 내 차 마커
+    ctx.save();
+    ctx.shadowColor = 'rgba(37, 99, 235, .35)'; ctx.shadowBlur = 12;
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(cx, cy, 14, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+    ctx.fillStyle = '#2563eb'; ctx.beginPath(); ctx.arc(cx, cy, 11, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.beginPath();
+    ctx.moveTo(cx, cy - 6.5); ctx.lineTo(cx + 5, cy + 5); ctx.lineTo(cx, cy + 2.5); ctx.lineTo(cx - 5, cy + 5); ctx.closePath(); ctx.fill();
+  }
+
+  // ───────── 주행 시나리오 (영상 37.5초 루프) ─────────
+  //  0 ~ 16s   EV 주행 · 배터리 24 → 20%
+  //  16s       배터리 20% → 발전 모드 전환 (토스트)
+  //  16 ~ 34s  발전 중 · 배터리 20 → 24% 회복, 전기 주행 비율 78 → 75%
+  //  34s       배터리 회복 → EV 주행 복귀 (토스트)
+  var LOOP = 37.5, SIM_MPS = 34;
+  function scenario(t) {
+    if (t < 16) return { mode: 'ev', bat: 24 - Math.floor(t / 4), ratio: 78 };
+    if (t < 34) return { mode: 'gen', bat: Math.min(24, 20 + Math.floor((t - 16) / 4.5)), ratio: Math.round(78 - 3 * (t - 16) / 18) };
+    return { mode: 'ev', bat: 24, ratio: Math.round(75 + 3 * (t - 34) / 3.5) };
+  }
+
+  function fmtDist(m) { return m >= 1000 ? (m / 1000).toFixed(1) + 'km' : (Math.round(m / 10) * 10) + 'm'; }
+  function fmtClock(d) {
+    var h = d.getHours(), m = d.getMinutes(), ap = h >= 12 ? 'PM' : 'AM';
+    h = h % 12 || 12;
+    return h + ':' + (m < 10 ? '0' : '') + m + ' ' + ap;
+  }
+  var ARROW = { 1: '↱', '-1': '↰' };
+
+  // ?t=20 처럼 시작 시점을 옮길 수 있음 (발표 리허설용)
+  var T = parseFloat(new URLSearchParams(location.search).get('t')) || 0, last = null, lastMode = null, uiTick = 0;
+  function setText(id, v) { var el = $(id); if (el.textContent !== v) el.textContent = v; }
+
+  function frame(now) {
+    var dt = last == null ? 0 : Math.min(0.1, (now - last) / 1000);
+    last = now;
+    T += dt;
+    var s = T * SIM_MPS;
+    drawMap(s, dt);
+
+    uiTick += dt;
+    if (uiTick >= 0.1 || lastMode == null) {
+      uiTick = 0;
+      var t = T % LOOP, sc = scenario(t);
+
+      // 모드 전환
+      if (sc.mode !== lastMode) {
+        if (lastMode != null) {
+          showToast(sc.mode === 'gen' ? '⚡ 배터리 20% · 발전 모드로 전환했어요' : '🔋 배터리로 조용히 주행 중');
+        }
+        lastMode = sc.mode;
+        driveMode = sc.mode;
+        syncWidgetAnim();
+        var gen = sc.mode === 'gen';
+        $('badge').className = 'badge ' + sc.mode;
+        $('badge').textContent = gen ? '발전 중' : 'EV 주행';
+        $('wLabel').className = 'w-label' + (gen ? ' gen' : '');
+        $('wLabel').innerHTML = gen ? '<span style="color:#f59e0b">⚡</span><span>발전 중 · 연료 → 전기</span>'
+                                    : '<span>🔋</span><span>EV 주행 · 배터리 전기 사용 중</span>';
+        $('wBar').className = gen ? 'gen' : '';
+      }
+      setText('wBat', sc.bat + '%');
+      $('wBar').style.width = sc.bat + '%';
+      setText('wRatio', sc.ratio + '%');
+      setText('batPill', String(sc.bat));
+      setText('range', (323 + sc.bat) + 'km');
+
+      // 속도 · 주행거리 · 도착 예정
+      setText('speed', String(Math.round(60 + 3 * Math.sin(T * 0.7) + 1.5 * Math.sin(T * 1.9))));
+      var remainKm = 31.2 - (T * 0.11) % 26;
+      setText('odo', (5035.1 + T * 0.11).toFixed(1) + 'km');
+      var mins = Math.round(remainKm / 1.15), nowD = new Date();
+      setText('clock', fmtClock(nowD));
+      setText('etaTime', fmtClock(new Date(nowD.getTime() + mins * 60000)));
+      setText('etaRemain', mins + '분 · ' + remainKm.toFixed(1) + 'km');
+
+      // 길 안내
+      var turns = upcomingTurns(s), t1 = turns[0], t2 = turns[1];
+      var dir1 = turnDir(t1.i), dir2 = turnDir(t2.i);
+      var ic = t1.d > 700 ? '↑' : ARROW[dir1];
+      var street = SEG[t1.i][0];
+      setText('nIc', ic); setText('cIc', ic);
+      setText('nDist', fmtDist(t1.d)); setText('cDist', fmtDist(t1.d));
+      setText('nStreet', street); setText('cStreet', street);
+      setText('nNextIc', ARROW[dir2]); setText('nNext', fmtDist(t2.d - t1.d));
+      setText('cNext', ARROW[dir2] + ' ' + fmtDist(t2.d - t1.d));
+      setText('roadPill', SEG[segmentAt(s)][1]);
+      var lanes = $('lanes').children;
+      for (var i = 0; i < lanes.length; i++) {
+        var on = ic === '↑' ? (i >= 1 && i <= 3) : dir1 > 0 ? i >= 4 : i === 0;
+        lanes[i].className = on ? 'on' : '';
+      }
+    }
+    requestAnimationFrame(frame);
+  }
+
+  window.addEventListener('resize', fit);
+  fit();
+  window.applyWidgetSettings(readInitialSettings(), false);
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

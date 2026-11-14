@@ -1,0 +1,370 @@
+package com.example.rrrphone
+
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.*
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.*
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.LineBreak
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.example.rrrphone.ui.theme.AppText
+import kotlinx.coroutines.delay
+import kotlin.math.PI
+import kotlin.math.abs
+import kotlin.math.roundToInt
+import kotlin.math.sin
+import kotlin.random.Random
+
+// ───────────── 팔레트 (차량 앱과 동일) ─────────────
+
+val Bg = Color(0xFFF3F4F6)
+val Surface = Color(0xFFFFFFFF)
+val Ink = Color(0xFF171A20)
+val Sub = Color(0xFF5C5E62)
+val Faint = Color(0xFF8E8E8E)
+val Line = Color(0xFFE6E7EA)
+val Field = Color(0xFFF4F4F4)
+val Blue = Color(0xFF3E6AE1)
+val EvGreen = Color(0xFF12A37A)
+val GasOrange = Color(0xFFE58A00)
+val LrrrCream = Color(0xFFFBE7C3)
+
+val Tone.color: Color get() = when (this) { Tone.Ev -> EvGreen; Tone.Gas -> GasOrange; Tone.Neutral -> Sub }
+
+// ───────────── 공통 ─────────────
+
+@Composable
+fun RCard(modifier: Modifier = Modifier, padding: Dp = 16.dp, content: @Composable ColumnScope.() -> Unit) {
+    Column(
+        modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Surface)
+            .border(1.dp, Line, RoundedCornerShape(16.dp)).padding(padding),
+        content = content,
+    )
+}
+
+@Composable
+fun SectionTitle(text: String, action: String? = null, onAction: () -> Unit = {}) {
+    Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(text, color = Ink, fontSize = 17.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+        if (action != null) {
+            Text("$action ›", color = Blue, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable(onClick = onAction).padding(4.dp))
+        }
+    }
+}
+
+@Composable
+fun Tag(text: String, color: Color, filled: Boolean = false) {
+    Text(
+        text, color = if (filled) Surface else color, fontSize = 10.sp, fontWeight = FontWeight.Bold,
+        modifier = Modifier.clip(RoundedCornerShape(4.dp))
+            .background(if (filled) color else color.copy(alpha = 0.1f))
+            .padding(horizontal = 6.dp, vertical = 2.dp),
+    )
+}
+
+@Composable
+fun InfraTags(p: Place) {
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        if (p.home != null) Tag("집충전", EvGreen)
+        if (p.slow != null) Tag("완속", EvGreen)
+        if (p.fast != null) Tag("급속", GasOrange)
+        if (p.home == null && p.slow == null && p.fast == null) Tag(if (p.aliases.isEmpty()) "인프라 정보 없음" else "충전소 없음", Faint)
+    }
+}
+
+@Composable
+fun Pill(text: String, active: Boolean = false, onClick: () -> Unit) {
+    Text(
+        text, color = if (active) Surface else Ink, fontSize = 13.sp, fontWeight = FontWeight.Medium,
+        modifier = Modifier.clip(RoundedCornerShape(18.dp))
+            .background(if (active) Ink else Surface)
+            .border(1.dp, if (active) Ink else Line, RoundedCornerShape(18.dp))
+            .clickable(onClick = onClick).padding(horizontal = 14.dp, vertical = 8.dp),
+    )
+}
+
+@Composable
+fun PleosPill(synced: Boolean) {
+    Row(
+        Modifier.clip(RoundedCornerShape(14.dp)).background(if (synced) EvGreen.copy(alpha = 0.1f) else Field)
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(7.dp).clip(CircleShape).background(if (synced) EvGreen else Blue))
+        Spacer(Modifier.width(6.dp))
+        Text(if (synced) "Pleos 반영됨" else "Pleos 연결됨", color = if (synced) EvGreen else Sub,
+            fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+/** 전기(초록)/발전(주황) 비율 막대 */
+@Composable
+fun EnergyBar(ev: Double, gas: Double, modifier: Modifier = Modifier) {
+    Row(modifier.height(6.dp).clip(RoundedCornerShape(3.dp)).background(Field)) {
+        if (ev > 0.05) Box(Modifier.weight(ev.toFloat()).fillMaxHeight().background(EvGreen))
+        if (gas > 0.05) Box(Modifier.weight(gas.toFloat()).fillMaxHeight().background(GasOrange))
+    }
+}
+
+// ───────────── 일정 + 이동 타임라인 ─────────────
+
+@Composable
+fun DayItems(s: DayStrategy) {
+    Column {
+        s.items.forEachIndexed { i, item ->
+            when (item) {
+                is PlanItem.Stop -> StopRow(item)
+                is PlanItem.Drive -> DriveRow(item.leg)
+            }
+            if (i < s.items.lastIndex) Spacer(Modifier.height(2.dp))
+        }
+    }
+}
+
+@Composable
+private fun StopRow(st: PlanItem.Stop) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+        Text(st.time, color = Sub, fontSize = 12.sp, fontWeight = FontWeight.Medium, lineHeight = 16.sp,
+            modifier = Modifier.width(78.dp).padding(top = 2.dp))
+        Box(Modifier.padding(top = 5.dp).size(10.dp).clip(CircleShape)
+            .background(if (st.isNew) Blue else Ink))
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(st.title, color = Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                if (st.isNew) { Spacer(Modifier.width(6.dp)); Tag("새 일정", Blue, filled = true) }
+            }
+            Text(st.place.name, color = Faint, fontSize = 12.sp)
+            st.note?.let {
+                Spacer(Modifier.height(3.dp))
+                Text(it, color = st.tone.color, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            }
+        }
+    }
+}
+
+@Composable
+private fun DriveRow(l: Leg) {
+    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+        Text(hm(l.depart), color = Faint, fontSize = 11.sp, modifier = Modifier.width(78.dp).padding(top = 6.dp))
+        Box(Modifier.width(10.dp).fillMaxHeight(), contentAlignment = Alignment.Center) {
+            Box(Modifier.width(2.dp).fillMaxHeight().background(Line))
+        }
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f).padding(vertical = 6.dp).clip(RoundedCornerShape(8.dp)).background(Field)
+            .padding(horizontal = 10.dp, vertical = 8.dp)) {
+            Text("🚗 ${l.distKm.roundToInt()}km · 약 ${((l.arrive - l.depart) * 60).roundToInt()}분",
+                color = Sub, fontSize = 12.sp)
+            Spacer(Modifier.height(5.dp))
+            EnergyBar(l.evKm, l.gasKm, Modifier.fillMaxWidth())
+            Spacer(Modifier.height(4.dp))
+            Row {
+                if (l.evKm >= 0.5) Text("전기 ${l.evKm.roundToInt()}km", color = EvGreen, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                if (l.evKm >= 0.5 && l.gasKm >= 0.5) Text("  ·  ", color = Faint, fontSize = 11.sp)
+                if (l.gasKm >= 0.5) Text("발전 ${l.gasKm.roundToInt()}km", color = GasOrange, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.weight(1f))
+                Text("배터리 ${l.socStart.roundToInt()}→${l.socEnd.roundToInt()}%", color = Faint, fontSize = 11.sp)
+            }
+        }
+    }
+}
+
+// ───────────── 전략 카드 ─────────────
+
+@Composable
+fun StrategyCard(state: AppState, s: DayStrategy, showChart: Boolean = true, showItems: Boolean = false) {
+    val synced = state.isSynced(s.date) && s.kmPerKwh == PLEOS_KM_PER_KWH
+    RCard {
+        Text(
+            if (synced) "최종 전략 · Pleos 주행 데이터 반영" else "1차 전략 · 캘린더 + 충전 인프라",
+            color = if (synced) EvGreen else Blue, fontSize = 11.sp, fontWeight = FontWeight.Bold,
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(LrrrAgent.headline(s), color = Ink, fontSize = 22.sp, lineHeight = 28.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(2.dp))
+        Text(LrrrAgent.benefit(s), color = EvGreen, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+        Text("${dateLabel(s.date, state.today)} ${s.totalKm.roundToInt()}km · 전기 ${s.evKm.roundToInt()}km / 발전 ${s.gasKm.roundToInt()}km",
+            color = Faint, fontSize = 11.sp)
+        if (showItems) {
+            Spacer(Modifier.height(10.dp)); DayItems(s)
+        }
+        if (showChart && s.legs.isNotEmpty()) {
+            Spacer(Modifier.height(14.dp))
+            Text("에너지 공급 계획", color = Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(6.dp))
+            SupplyTimelineChart(s.timeline)
+            Spacer(Modifier.height(12.dp))
+            GasStrategyCard(s.gas)
+        }
+        val actions = LrrrAgent.actions(s)
+        if (actions.isNotEmpty()) Spacer(Modifier.height(12.dp))
+        actions.forEach { a ->
+            val done = a.key in state.done
+            Text(
+                if (done) a.done else a.label,
+                color = if (done) EvGreen else Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp).clip(RoundedCornerShape(10.dp))
+                    .background(if (done) EvGreen.copy(alpha = 0.1f) else Surface)
+                    .border(1.dp, if (done) Color.Transparent else Line, RoundedCornerShape(10.dp))
+                    .clickable { if (!done) { state.done += a.key; state.showToast(a.done) } }
+                    .padding(vertical = 11.dp),
+            )
+        }
+        Spacer(Modifier.height(6.dp))
+        PleosButton(state, s)
+    }
+}
+
+@Composable
+fun PleosButton(state: AppState, s: DayStrategy) {
+    val synced = state.isSynced(s.date)
+    Button(
+        onClick = { if (!synced) state.sendToPleos(s.date) },
+        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+        shape = RoundedCornerShape(10.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = if (synced) EvGreen.copy(alpha = 0.12f) else Blue,
+            contentColor = if (synced) EvGreen else Surface,
+        ),
+    ) {
+        Text(if (synced) "✓ 차량(Pleos)에 최종 전략 반영됨" else "🚗 Pleos로 보내기 · 주행 데이터로 확정",
+            fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+// ───────────── 르르르 캐릭터 ─────────────
+
+private val LrrrEyes = listOf(Offset(0.3708f, 0.2463f), Offset(0.6205f, 0.2463f))
+private const val LRRR_ASPECT = 358f / 480f
+
+@Composable
+fun LrrrAvatar(size: Dp) {
+    Image(
+        painter = painterResource(R.drawable.lrrr_clean), contentDescription = "르르르",
+        contentScale = ContentScale.Fit,
+        modifier = Modifier.size(size).clip(CircleShape).background(Color(0xFFFFF2DF))
+            .padding(top = size * 0.14f, start = size * 0.09f, end = size * 0.09f),
+    )
+}
+
+/** 홈 화면 히어로: 말풍선 + 통통 튀는 르르르 (차량 앱 LrrrHero 와 같은 동작) */
+@Composable
+fun LrrrHero(message: String, modifier: Modifier = Modifier) {
+    Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
+        SpeechBubble(message, Modifier.weight(1f).padding(bottom = 54.dp, end = 6.dp))
+        BouncyLrrr(greetKey = message, width = 84.dp)
+    }
+}
+
+@Composable
+fun BouncyLrrr(greetKey: Any, width: Dp, modifier: Modifier = Modifier) {
+    // 반응성: 애니메이션 값은 그리기 단계(graphicsLayer/Canvas)에서만 읽음 → 매 프레임 재구성(recomposition) 없음
+    //  (대화에 르르르가 여러 마리 있으면 예전엔 전부 매 프레임 재구성돼서 스크롤이 버벅였음)
+    val phase = rememberInfiniteTransition(label = "lrrr").animateFloat(
+        0f, 1f, infiniteRepeatable(tween(1300, easing = LinearEasing)), label = "bounce",
+    )
+    val hop = remember { Animatable(1f) }
+    LaunchedEffect(greetKey) { hop.snapTo(0f); hop.animateTo(1f, tween(560)) }
+    val lift = { abs(sin(phase.value * PI)).toFloat() }
+    val hopLift = { sin(hop.value * PI).toFloat() }
+    var blink by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        while (true) { delay(2600L + Random.nextLong(1200L)); blink = true; delay(130); blink = false }
+    }
+    val h = width / LRRR_ASPECT
+    Box(modifier.size(width = width, height = h + 30.dp)) {
+        Canvas(Modifier.align(Alignment.BottomCenter).size(width = width * 0.7f, height = 10.dp)) {
+            val k = 1f - 0.35f * maxOf(lift() * 0.4f, hopLift())
+            val sw = size.width * k
+            drawOval(Color.Black.copy(alpha = 0.13f * k), Offset((size.width - sw) / 2f, 0f), Size(sw, size.height))
+        }
+        Box(
+            Modifier.align(Alignment.BottomCenter).padding(bottom = 5.dp).size(width = width, height = h)
+                .graphicsLayer {
+                    val l = lift()
+                    val squash = (1f - l) * (1f - l) * 0.05f
+                    translationY = -(l * 4f + hopLift() * 18f).dp.toPx()
+                    scaleX = 1f + squash; scaleY = 1f - squash
+                    rotationZ = sin(hop.value * 2 * PI).toFloat() * 6f
+                    transformOrigin = TransformOrigin(0.5f, 1f)
+                }
+        ) {
+            Image(painterResource(R.drawable.lrrr_clean), "르르르", contentScale = ContentScale.FillBounds,
+                modifier = Modifier.fillMaxSize())
+            if (blink) Canvas(Modifier.fillMaxSize()) {
+                LrrrEyes.forEach { e ->
+                    val c = Offset(e.x * size.width, e.y * size.height)
+                    val rx = size.width * 0.05f; val ry = size.height * 0.04f
+                    drawOval(LrrrCream, Offset(c.x - rx, c.y - ry), Size(rx * 2, ry * 2))
+                    drawLine(Ink, Offset(c.x - rx * 0.7f, c.y), Offset(c.x + rx * 0.7f, c.y),
+                        strokeWidth = 2.dp.toPx(), cap = StrokeCap.Round)
+                }
+            }
+        }
+    }
+}
+
+private val bubbleText = AppText.copy(fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.Bold, lineBreak = LineBreak.Heading)
+
+@Composable
+fun SpeechBubble(message: String, modifier: Modifier = Modifier, animate: Boolean = true) {
+    val pop = remember { Animatable(if (animate) 0f else 1f) }
+    var shown by remember { mutableIntStateOf(if (animate) 0 else message.length) }
+    LaunchedEffect(message) {
+        if (!animate) { shown = message.length; return@LaunchedEffect }
+        shown = 0
+        pop.snapTo(0.4f)
+        pop.animateTo(1f, spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium))
+        while (shown < message.length) { delay(24); shown++ }
+    }
+    Column(
+        modifier.graphicsLayer {
+            scaleX = pop.value; scaleY = pop.value
+            alpha = pop.value.coerceIn(0f, 1f)
+            transformOrigin = TransformOrigin(1f, 1f)
+        }
+    ) {
+        Box(
+            Modifier.border(2.dp, Ink, RoundedCornerShape(16.dp)).background(Color.White, RoundedCornerShape(16.dp))
+                .padding(horizontal = 14.dp, vertical = 10.dp)
+        ) {
+            Text(message, style = bubbleText, color = Color.Transparent)
+            Text(message.take(shown), style = bubbleText, color = Ink)
+        }
+        Canvas(Modifier.fillMaxWidth().height(18.dp)) {
+            val baseL = size.width - 40.dp.toPx()
+            val baseR = size.width - 20.dp.toPx()
+            val tip = Offset(size.width + 16.dp.toPx(), size.height)
+            val tail = Path().apply { moveTo(baseL, -2.dp.toPx()); lineTo(tip.x, tip.y); lineTo(baseR, -2.dp.toPx()); close() }
+            drawPath(tail, Color.White)
+            drawLine(Ink, Offset(baseL, -1.dp.toPx()), tip, 2.dp.toPx(), cap = StrokeCap.Round)
+            drawLine(Ink, Offset(baseR, -1.dp.toPx()), tip, 2.dp.toPx(), cap = StrokeCap.Round)
+        }
+    }
+}

@@ -1,0 +1,29 @@
+{
+  "_comment": "Gleo AI App Schema 초안 — Pleos 공식 스키마 형식 확인 후 필드명 맞출 것",
+  "app": {
+    "packageName": "com.example.rrr",
+    "name": "르르링",
+    "description": "EREV 연료 코치. 출발지와 도착지를 받아 전기/기름 중 경제적인 연료 전략을 제안한다."
+  },
+  "functions": [
+    {
+      "name": "setTrip",
+      "description": "르르링에 출발지와 도착지를 설정하고 오늘의 연료 제안을 보여준다.",
+      "examples": [
+        "르르링, 강남에서 스타필드 하남 가자",
+        "르르링, 집으로 가는 길 연료 어떻게 할까?",
+        "부모님 댁 가는데 충전해야 돼?"
+      ],
+      "parameters": {
+        "origin": { "type": "string", "description": "출발지 이름. 없으면 현재 위치", "required": false },
+        "destination": { "type": "string", "description": "도착지 이름", "required": true },
+        "utterance": { "type": "string", "description": "사용자 발화 원문", "required": false }
+      },
+      "invoke": {
+        "type": "intent",
+        "action": "com.example.rrr.action.SET_TRIP",
+        "component": "com.example.rrr/.MainActivity"
+      }
+    }
+  ]
+}
